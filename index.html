@@ -1,0 +1,31 @@
+---
+layout: default
+---
+
+<div id="hero">
+  <video autoplay loop>
+    <source src="/images/Hello-World/Hello-World.mp4" type="video/mp4" />
+    <source src="/images/Hello-World/Hello-World.webm" type="video/webm" />
+  </video>
+  <h1>Jerome Walker</h1>
+  <h2>Software Developer</h2>
+</div>
+
+
+<div class="posts">
+  {% for post in site.posts %}
+    <article>
+
+      <div class="lead">
+        <img src="{{post.image}}_thumb.jpg">
+      </div>
+
+      <div class="excerpt">
+        <a class="title" href="{{ post.url }}">{{ post.title }}</a>
+        {{ post.excerpt }}
+        <a href="{{ post.url }}" class="read-more">Read More</a>
+      </div>
+
+    </article>
+  {% endfor %}
+</div>
