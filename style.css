@@ -124,6 +124,7 @@ nav a:hover {
 }
 
 .post .lead img {
+  width: 100%;
   opacity: 0.66;
 }
 
