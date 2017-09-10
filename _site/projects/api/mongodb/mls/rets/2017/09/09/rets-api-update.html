@@ -27,7 +27,7 @@
     <h2>September  9, 2017</h2>
 
     <h3 id="opportunity">Opportunity</h3>
-<p>Provide single-entry of home listing data for builders who market properties with real estate agents.</p>
+<p>Provide for single-entry of home listing data for builders who market homes through real estate agents.</p>
 
 <p>Real estate agents working with home builders were syndicating listings using the MLS (Multiple Listing Service).  Utilizing the MLS data on home builder websites would save time and provide more accurate data to potential buyers.  However, because a primary goal is to be time-saving, the system must be simple and seamless to the user in order to be practical.</p>
 
@@ -59,6 +59,8 @@
 <p><a href="/images/mlsadd.jpg"><img src="/images/mlsadd.jpg" alt="" /></a> Standard fields are translated into a normalized schema based on the Creative Commons licensed <a href="http://schema.org/SingleFamilyResidence">schema.org</a>.  Regional-only fields were retained in the data and made available to applications downstream.  When new regional fields were added, no updates were needed, since MongoDB was able to store a complete set of data properties.</p>
 
 <p><a href="/images/mlsres.jpg"><img src="/images/mlsres.jpg" alt="" /></a> MongoDB also provides a well-documented query language which is used to query the normalized data.  A ‘find’ URL parameter is passed to MongoDB via a PHP-based API.  Any field, standard or custom, can be used in a query.  Indexes on standard fields allow the Mongo queries to be performant even when custom fields are used and with millions of properties in the database.</p>
+
+<p><a href="/images/retsdone.jpg"><img src="/images/retsdone.jpg" alt="" /></a> The end result was an easy-to-maintain and future proof MLS system that abstracted away the difficulties of dealing with RETS and multiple vendors and provided a simple to use, well-documented JSON API.</p>
 
 
   </div>

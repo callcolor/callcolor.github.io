@@ -2,12 +2,12 @@
 layout: post
 title:  "Real Estate API Update"
 date:   2017-09-09 10:53:03 -0500
-categories: Projects MLS RETS API MongoDB
+categories: Projects API MongoDB MLS RETS
 image: /images/rets
 ---
 
 ### Opportunity
-Provide single-entry of home listing data for builders who market properties with real estate agents.
+Provide for single-entry of home listing data for builders who market homes through real estate agents.
 
 Real estate agents working with home builders were syndicating listings using the MLS (Multiple Listing Service).  Utilizing the MLS data on home builder websites would save time and provide more accurate data to potential buyers.  However, because a primary goal is to be time-saving, the system must be simple and seamless to the user in order to be practical.
 
@@ -42,6 +42,8 @@ MongoDB, AngularJS, Material Design
 [![](/images/mlsadd.jpg)](/images/mlsadd.jpg) Standard fields are translated into a normalized schema based on the Creative Commons licensed [schema.org][schema-org].  Regional-only fields were retained in the data and made available to applications downstream.  When new regional fields were added, no updates were needed, since MongoDB was able to store a complete set of data properties.
 
 [![](/images/mlsres.jpg)](/images/mlsres.jpg) MongoDB also provides a well-documented query language which is used to query the normalized data.  A 'find' URL parameter is passed to MongoDB via a PHP-based API.  Any field, standard or custom, can be used in a query.  Indexes on standard fields allow the Mongo queries to be performant even when custom fields are used and with millions of properties in the database.
+
+[![](/images/retsdone.jpg)](/images/retsdone.jpg) The end result was an easy-to-maintain and future proof MLS system that abstracted away the difficulties of dealing with RETS and multiple vendors and provided a simple to use, well-documented JSON API.  
 
 
 [wiki-rets]: https://en.wikipedia.org/wiki/Real_Estate_Transaction_Standard

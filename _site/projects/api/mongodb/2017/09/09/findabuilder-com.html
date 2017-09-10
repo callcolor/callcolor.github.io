@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Jerome Walker - Projects</title>
+    <link href="/style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Signika:300,400" rel="stylesheet">
+  </head>
+
+  <body>
+    <header>
+      <nav>
+        <a  href="/">Blog</a>
+        <a  href="/about">Contact</a>
+      </nav>
+    </header>
+
+    <div id="main" role="main" class="container">
+      <article class="post">
+  <div class="lead">
+    <img src="/images/fab.jpg">
+  </div>
+
+
+
+  <div class="content">
+    <h1>FindABuilder.com</h1>
+    <h2>September  9, 2017</h2>
+
+    <h3 id="opportunity">Opportunity</h3>
+<p>Aggregate new home construction data from 300+ home builder websites into a common database to create one of the largest collections of new construction home listings in North America.</p>
+
+<p>The majority of the residential real estate market is served by the existing MLS system.  Sites like Realtor.com and Zillow provide home buyers with a searchable list of properties nation wide.  However, new homes and available lots are often missing from MLS systems.  Many home builders prefer to market their properties through their own websites and do not feel existing aggregation services serve their interests.</p>
+
+<h3 id="existing-data">Existing Data</h3>
+<p>300+ websites built over a five year period all using the same custom built in-house CMS.</p>
+
+<p>While the existing sites used the same CMS, it had been heavily customized for each.  MySQL tables varied in naming convention and content.  The ‘community’ table of one site was the ‘communities’ table of the next.  Older sites stored CSV lists in single fields while newer sites took advantage of one-to-many table relationships.  Only a few newer sites took advantage of foreign key relationships.  None of the schemas were documented.</p>
+
+<h3 id="solution">Solution</h3>
+<p>MongoDB, Python Eve, PHP, AngularJS</p>
+
+<p><a href="/images/api2.jpg"><img src="/images/api2.jpg" alt="" /></a> An update was made to the legacy CMS to provide an API to the existing MySQL data.  In order to handle a wide variety of undocumented data, MongoDB was chosen as the new database solution.  A nightly cron job was set up on a separate server to access the API on each site and update the MongoDB database.  As gaps were discovered in the data, The CMS was extended with a series of fallbacks for its API.</p>
+
+<p><a href="/images/eve.jpg"><img src="/images/eve.jpg" alt="" /></a> An off-the-shelf solution, <a href="http://python-eve.org/">Python Eve</a>, was selected to provide an API to the new MongoDB database.  Python Eve worked out-of-the-box as a fully functional REST API with minimal configuration saving time over building a custom solution.  Eve combined with MongoDB also provided for the geospatial queries required to search and filter the data later.</p>
+
+<p><a href="/images/fabfinal.jpg"><img src="/images/fabfinal.jpg" alt="" /></a> Finally, a proof-of-concept website was created to consume the API.  <a href="https://www.findabuilder.com/">FindABuilder.com</a> displays aggregated data from all 300+ home builder websites to potential home buyers.</p>
+
+  </div>
+
+</article>
+
+    </div>
+
+    <footer>
+
+    </footer>
+
+  </body>
+</html>
