@@ -14,9 +14,6 @@ footer {
   clear: both;
 }
 
-header {
-}
-
 img {
   max-width: 100%;
 }
@@ -63,7 +60,7 @@ nav a:hover {
   display: flex;
   width: 53vw;
   height: 40vw;
-  padding: 4vw;
+  margin: 4vw;
   align-items: center;
   justify-content: center;
 }
@@ -97,6 +94,7 @@ nav a:hover {
 
 .posts article img {
   width: 50%;
+  max-width: 400px;
   border: 1px solid #888;
 }
 
@@ -123,11 +121,6 @@ nav a:hover {
   line-height: 0px;
 }
 
-.post .lead img {
-  width: 100%;
-  opacity: 0.66;
-}
-
 .post .content {
   position: relative;
   margin: 60px;
@@ -139,6 +132,7 @@ nav a:hover {
 
 .post .content h3 {
   position: relative;
+  clear: both;
   top: 10px;
   width: 100%;
   margin: 0;
@@ -146,15 +140,15 @@ nav a:hover {
   border-bottom: 1px solid #333333;
 }
 
+.post .content img {
+  width: 33%;
+  border: 1px solid #888;
+}
+
 .post .content p {
   clear: both;
   margin: 0;
   padding-top: 20px;
-}
-
-.post .content img {
-  width: 33%;
-  border: 1px solid #888;
 }
 
 .post .content p:nth-child(odd) img{
@@ -167,7 +161,10 @@ nav a:hover {
   margin-left: 20px;
 }
 
-
+.post .lead img {
+  width: 100%;
+  opacity: 0.66;
+}
 
 #hero {
   position: relative;
