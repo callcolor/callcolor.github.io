@@ -87,6 +87,12 @@ nav a:hover {
   padding: 20px;
 }
 
+.container {
+  max-width: 1080px;
+  margin: auto;
+  padding: 0 60px;
+}
+
 .posts article {
   clear: both;
   padding-top: 80px;
@@ -123,7 +129,6 @@ nav a:hover {
 
 .post .content {
   position: relative;
-  margin: 60px;
 }
 
 .post .content h1 {
@@ -193,5 +198,6 @@ nav a:hover {
 #hero h2 {
   padding-top: 26vw;
   font-size: 3vw;
+  font-weight: normal;
   text-transform: lowercase;
 }

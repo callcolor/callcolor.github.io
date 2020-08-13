@@ -12,22 +12,22 @@ layout: default
 </div>
 
 
-<div class="posts">
+<div class="posts container">
   {% for post in site.posts %}
-    <article>
+  <article>
 
-      <div class="lead">
-        <a href="{{ post.url }}">
-          <img src="{{post.image}}_thumb.jpg">
-        </a>
-      </div>
+    <div class="lead">
+      <a href="{{ post.url }}">
+        <img src="{{post.image}}_thumb.jpg">
+      </a>
+    </div>
 
-      <div class="excerpt">
-        <a class="title" href="{{ post.url }}">{{ post.title }}</a>
-        {{ post.excerpt }}
-        <a href="{{ post.url }}" class="read-more">Read More</a>
-      </div>
+    <div class="excerpt">
+      <a class="title" href="{{ post.url }}">{{ post.title }}</a>
+      {{ post.excerpt }}
+      <a href="{{ post.url }}" class="read-more">Read More</a>
+    </div>
 
-    </article>
+  </article>
   {% endfor %}
 </div>
