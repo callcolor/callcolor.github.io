@@ -1,28 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+  <head>
+    <title>Jerome Walker - Software Engineer</title>
+    <link href="/style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Signika:300,400" rel="stylesheet">
+  </head>
 
-<head>
-  <title>Jerome Walker - Projects</title>
-  <link href="/style.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css?family=Signika:300,400" rel="stylesheet">
-</head>
+  <body>
+    <header>
+      <nav>
+        <a
+          {% if page.url == '/' %}
+            class="active"
+          {% endif %}
+          href="/"
+          >Home</a
+        >
+      </nav>
+    </header>
 
-<body>
-  <header>
-    <nav>
-      <a {% if page.url == '/' %}class='active' {% endif %} href="/">Blog</a>
-      <a {% if page.url == '/about.html' %}class='active' {% endif %} href="/about">Contact</a>
-    </nav>
-  </header>
+    <div id="main" role="main">
+      {{ content }}
+    </div>
 
-  <div id="main" role="main">
-    {{ content }}
-  </div>
-
-  <footer>
-
-  </footer>
-
-</body>
-
+    <footer></footer>
+  </body>
 </html>

@@ -2,32 +2,65 @@
 layout: default
 ---
 
-<div id="hero">
-  <video autoplay loop>
-    <source src="/images/Hello-World/Hello-World.mp4" type="video/mp4" />
-    <source src="/images/Hello-World/Hello-World.webm" type="video/webm" />
-  </video>
-  <h1>Jerome Walker</h1>
-  <h2>Software Developer</h2>
-</div>
+<div class="container">
+  <div id="hero">
+    <video autoplay loop>
+      <source src="/images/Hello-World/Hello-World.mp4" type="video/mp4" />
+      <source src="/images/Hello-World/Hello-World.webm" type="video/webm" />
+    </video>
+    <h1>Jerome Walker</h1>
+    <h2>Software Engineer</h2>
+  </div>
 
+  <div class="posts">
+    {% for post in site.posts %}
+    <article>
+      <div class="lead">
+        <a href="{{ post.url }}">
+          <img src="{{post.image}}_thumb.jpg" />
+        </a>
+      </div>
 
-<div class="posts container">
-  {% for post in site.posts %}
-  <article>
+      <div class="excerpt">
+        <a class="title" href="{{ post.url }}">{{ post.title }}</a>
+        {{ post.excerpt }}
+        <a href="{{ post.url }}" class="read-more">Read More</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
 
-    <div class="lead">
-      <a href="{{ post.url }}">
-        <img src="{{post.image}}_thumb.jpg">
-      </a>
+  <div class="about">
+    <img src="/images/jerome.jpg" />
+    <div class="col">
+      <div>
+        <ul>
+          <li>
+            Email:
+            <a target="_blank" href="mailto:jerome@kansascitygeek.com"
+              >jerome@kansascitygeek.com</a
+            >
+          </li>
+          <li>
+            GitHub:
+            <a target="_blank" href="https://github.com/callcolor"
+              >https://github.com/callcolor</a
+            >
+          </li>
+          <li>
+            LinkedIn:
+            <a target="_blank" href="https://www.linkedin.com/in/kansascitygeek"
+              >https://www.linkedin.com/in/kansascitygeek</a
+            >
+          </li>
+          <li>
+            Facebook:
+            <a target="_blank" href="https://www.facebook.com/kansascitygeek"
+              >https://www.facebook.com/kansascitygeek</a
+            >
+          </li>
+        </ul>
+      </div>
     </div>
-
-    <div class="excerpt">
-      <a class="title" href="{{ post.url }}">{{ post.title }}</a>
-      {{ post.excerpt }}
-      <a href="{{ post.url }}" class="read-more">Read More</a>
-    </div>
-
-  </article>
-  {% endfor %}
+  </div>
 </div>

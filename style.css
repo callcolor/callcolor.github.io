@@ -47,22 +47,24 @@ nav a:hover {
   background-color: #444;
 }
 
+.about {
+  clear: both;
+  padding-top: 80px;
+}
+
 .about h1 {
   margin: 0;
 }
 
 .about img {
   float: right;
-  width: 38vw;
+  width: 400px;
+  max-width: 40%;
 }
 
 .about .col {
   display: flex;
-  width: 53vw;
-  height: 40vw;
-  margin: 4vw;
-  align-items: center;
-  justify-content: center;
+  padding-top: 15%;
 }
 
 .about .col div {
@@ -76,7 +78,7 @@ nav a:hover {
 .about .col ul {
   padding: 0;
   list-style: none;
-  font-size: 2vw;
+  font-size: min(2vw, 26px);
 }
 
 .title {
@@ -190,14 +192,14 @@ nav a:hover {
 }
 
 #hero h1 {
-  padding-top: 17vw;
-  font-size: 8vw;
+  padding-top: 15%;
+  font-size: min(8vw, 94px);
   font-weight: 300;
 }
 
 #hero h2 {
-  padding-top: 26vw;
-  font-size: 3vw;
+  padding-top: calc(15% + min(8vw, 94px));
+  font-size: min(3vw, 38px);
   font-weight: normal;
   text-transform: lowercase;
 }
