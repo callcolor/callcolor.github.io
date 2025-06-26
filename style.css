@@ -2,7 +2,8 @@ body {
   margin: 0;
   font-family: 'Signika', sans-serif;
   font-size: 20px;
-  color: #444
+  color: #ddd;
+  background-color: #0d0d0d;
 }
 
 a {
@@ -33,7 +34,7 @@ nav a {
   width: 110px;
   height: 40px;
   padding-top: 18px;
-  color: #ddd;
+  color: #aaa;
   text-decoration: none;
   text-align: center;
 }
@@ -129,6 +130,10 @@ nav a:hover {
   line-height: 0px;
 }
 
+.post .lead img {
+  width: 100%;
+}
+
 .post .content {
   position: relative;
 }
@@ -166,11 +171,6 @@ nav a:hover {
 .post .content p:nth-child(even) img{
   float: right;
   margin-left: 20px;
-}
-
-.post .lead img {
-  width: 100%;
-  opacity: 0.66;
 }
 
 #hero {
