@@ -1,0 +1,704 @@
+---
+layout: none
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lattice Life</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #050510; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" data-type="module">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// === LATTICE LIFE v3 ===
+// Creatures are subgraphs of the integer lattice. Edges are strictly cardinal (horizontal/vertical).
+// Mouths = 3 edges forming 3 sides of a unit square (open on one side).
+// Legs = pendant edges (degree-1 endpoint). An edge can be part of a mouth AND a leg.
+// Movement direction from leg thrust vectors (can be diagonal). Speed from leg count.
+// Food at grid points; mouths eat food at their interior cell.
+// Fed creatures reproduce with mutations. Starving ones die.
+
+const GRID_SIZE = 80;
+const CELL_PX = 8;
+const CANVAS_PX = GRID_SIZE * CELL_PX;
+const FOOD_SPAWN_RATE = 3;
+const INITIAL_CREATURES = 14;
+const INITIAL_FOOD = 80;
+const MAX_ENERGY = 200;
+const REPRODUCE_THRESHOLD = 120;
+const ENERGY_PER_FOOD = 38;
+const ENERGY_PER_TICK = 0.35;
+const MAX_FOOD = 250;
+const MAX_CREATURES = 80;
+
+const CARDINAL = [[1,0],[-1,0],[0,1],[0,-1]];
+
+function nk(x, y) { return `${x},${y}`; }
+function pk(k) { const [x, y] = k.split(",").map(Number); return [x, y]; }
+function ek(a, b) { return a < b ? `${a}|${b}` : `${b}|${a}`; }
+
+function createCreature(cx, cy) {
+  const nodes = new Set();
+  const edges = new Set();
+  const nodeList = [];
+
+  nodes.add(nk(cx, cy));
+  nodeList.push([cx, cy]);
+
+  const targetNodes = 4 + Math.floor(Math.random() * 7);
+  let attempts = 0;
+  while (nodeList.length < targetNodes && attempts < 200) {
+    attempts++;
+    const [bx, by] = nodeList[Math.floor(Math.random() * nodeList.length)];
+    const [dx, dy] = CARDINAL[Math.floor(Math.random() * 4)];
+    const nx2 = bx + dx, ny2 = by + dy;
+    const key = nk(nx2, ny2);
+    if (!nodes.has(key)) {
+      nodes.add(key);
+      nodeList.push([nx2, ny2]);
+    }
+    edges.add(ek(nk(bx, by), key));
+  }
+
+  for (const [x1, y1] of nodeList) {
+    for (const [dx, dy] of CARDINAL) {
+      const key = nk(x1 + dx, y1 + dy);
+      if (nodes.has(key) && Math.random() < 0.35) {
+        edges.add(ek(nk(x1, y1), key));
+      }
+    }
+  }
+
+  const clean = new Set();
+  for (const e of edges) {
+    const [a, b] = e.split("|");
+    if (!nodes.has(a) || !nodes.has(b)) continue;
+    const [ax, ay] = pk(a);
+    const [bx, by] = pk(b);
+    const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
+    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) clean.add(e);
+  }
+
+  const pos = [...nodes].map(pk);
+  const mnx = Math.min(...pos.map(p => p[0]));
+  const mny = Math.min(...pos.map(p => p[1]));
+  const mxx = Math.max(...pos.map(p => p[0]));
+  const mxy = Math.max(...pos.map(p => p[1]));
+  const ox = cx - Math.floor((mnx + mxx) / 2);
+  const oy = cy - Math.floor((mny + mxy) / 2);
+
+  const fNodes = new Set();
+  const fEdges = new Set();
+  for (const n of nodes) { const [x, y] = pk(n); fNodes.add(nk(x + ox, y + oy)); }
+  for (const e of clean) {
+    const [a, b] = e.split("|");
+    const [ax, ay] = pk(a); const [bx, by] = pk(b);
+    const na = nk(ax + ox, ay + oy), nb = nk(bx + ox, by + oy);
+    if (fNodes.has(na) && fNodes.has(nb)) fEdges.add(ek(na, nb));
+  }
+
+  return {
+    id: Math.random().toString(36).slice(2, 9),
+    nodes: fNodes, edges: fEdges,
+    energy: 80 + Math.random() * 40,
+    age: 0, hue: Math.floor(Math.random() * 360), generation: 0,
+  };
+}
+
+function nodeDeg(node, edges) {
+  let d = 0;
+  for (const e of edges) { const [a, b] = e.split("|"); if (a === node || b === node) d++; }
+  return d;
+}
+
+function findMouths(creature) {
+  const mouths = [];
+  const nodeSet = creature.nodes;
+  const edgeSet = creature.edges;
+  const checked = new Set();
+  for (const n of nodeSet) {
+    const [x, y] = pk(n);
+    for (const [ox, oy] of [[0,0],[-1,0],[0,-1],[-1,-1]]) {
+      const sx = x + ox, sy = y + oy;
+      const sqKey = `${sx},${sy}`;
+      if (checked.has(sqKey)) continue;
+      checked.add(sqKey);
+
+      const tl = nk(sx, sy);
+      const tr = nk(sx + 1, sy);
+      const br = nk(sx + 1, sy + 1);
+      const bl = nk(sx, sy + 1);
+
+      const eTop = ek(tl, tr);
+      const eRight = ek(tr, br);
+      const eBottom = ek(bl, br);
+      const eLeft = ek(tl, bl);
+
+      const presentEdges = [];
+      const missingEdges = [];
+      for (const [e, label] of [[eTop,"top"],[eRight,"right"],[eBottom,"bottom"],[eLeft,"left"]]) {
+        if (edgeSet.has(e)) presentEdges.push({ edge: e, side: label });
+        else missingEdges.push({ edge: e, side: label });
+      }
+
+      if (presentEdges.length === 3 && missingEdges.length === 1) {
+        mouths.push({
+          sx, sy,
+          edges: presentEdges.map(p => p.edge),
+          opening: missingEdges[0].side,
+        });
+      }
+    }
+  }
+  return mouths;
+}
+
+function findLegs(creature) {
+  const legs = [];
+  for (const e of creature.edges) {
+    const [a, b] = e.split("|");
+    const degA = nodeDeg(a, creature.edges);
+    const degB = nodeDeg(b, creature.edges);
+    if (degA === 1) legs.push({ foot: pk(a), body: pk(b), edge: e });
+    else if (degB === 1) legs.push({ foot: pk(b), body: pk(a), edge: e });
+  }
+  return legs;
+}
+
+function computeMovement(creature) {
+  const legs = findLegs(creature);
+  if (legs.length === 0) return [0, 0];
+
+  let dx = 0, dy = 0;
+  for (const leg of legs) {
+    dx += leg.foot[0] - leg.body[0];
+    dy += leg.foot[1] - leg.body[1];
+  }
+
+  if (dx === 0 && dy === 0) return [0, 0];
+
+  const mdx = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+  const mdy = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+  const speed = Math.min(legs.length, 3);
+  return [mdx * speed, mdy * speed];
+}
+
+function translateCreature(c, dx, dy) {
+  const nn = new Set(); const ne = new Set();
+  for (const n of c.nodes) { const [x, y] = pk(n); nn.add(nk(x + dx, y + dy)); }
+  for (const e of c.edges) {
+    const [a, b] = e.split("|");
+    const [ax, ay] = pk(a); const [bx, by] = pk(b);
+    ne.add(ek(nk(ax + dx, ay + dy), nk(bx + dx, by + dy)));
+  }
+  return { ...c, nodes: nn, edges: ne };
+}
+
+function wc(v) { return ((v % GRID_SIZE) + GRID_SIZE) % GRID_SIZE; }
+
+function wrapCreature(c) {
+  const pos = [...c.nodes].map(pk);
+  const cx2 = Math.floor(pos.reduce((s, p) => s + p[0], 0) / pos.length);
+  const cy2 = Math.floor(pos.reduce((s, p) => s + p[1], 0) / pos.length);
+  const wx = wc(cx2), wy = wc(cy2);
+  if (wx !== cx2 || wy !== cy2) return translateCreature(c, wx - cx2, wy - cy2);
+  return c;
+}
+
+function mutateCreature(parent) {
+  let nodes = new Set(parent.nodes);
+  let edges = new Set(parent.edges);
+  const nodeArr = [...nodes].map(pk);
+  const mutations = 1 + Math.floor(Math.random() * 3);
+
+  for (let m = 0; m < mutations; m++) {
+    const roll = Math.random();
+    const currentNodes = [...nodes].map(pk);
+
+    if (roll < 0.35 && currentNodes.length > 0) {
+      const [bx, by] = currentNodes[Math.floor(Math.random() * currentNodes.length)];
+      const [dx, dy] = CARDINAL[Math.floor(Math.random() * 4)];
+      const key = nk(bx + dx, by + dy);
+      if (!nodes.has(key)) {
+        nodes.add(key);
+        edges.add(ek(nk(bx, by), key));
+      }
+    } else if (roll < 0.55) {
+      const [x1, y1] = currentNodes[Math.floor(Math.random() * currentNodes.length)];
+      for (const [dx, dy] of CARDINAL) {
+        const key = nk(x1 + dx, y1 + dy);
+        if (nodes.has(key)) {
+          const e = ek(nk(x1, y1), key);
+          if (!edges.has(e)) { edges.add(e); break; }
+        }
+      }
+    } else if (roll < 0.75 && currentNodes.length > 3) {
+      const cands = currentNodes.filter(([x, y]) => nodeDeg(nk(x, y), edges) === 1);
+      if (cands.length > 0) {
+        const [rx, ry] = cands[Math.floor(Math.random() * cands.length)];
+        const rk = nk(rx, ry);
+        nodes.delete(rk);
+        const toRm = [];
+        for (const e of edges) { const [a, b] = e.split("|"); if (a === rk || b === rk) toRm.push(e); }
+        for (const e of toRm) edges.delete(e);
+      }
+    } else if (roll < 0.88 && edges.size > 2) {
+      const ea = [...edges];
+      edges.delete(ea[Math.floor(Math.random() * ea.length)]);
+    } else {
+      const cands = currentNodes.filter(([x, y]) => nodeDeg(nk(x, y), edges) === 1);
+      if (cands.length > 0) {
+        const [ox, oy] = cands[Math.floor(Math.random() * cands.length)];
+        const ok = nk(ox, oy);
+        let conn = null;
+        for (const e of edges) {
+          const [a, b] = e.split("|");
+          if (a === ok) { conn = b; break; }
+          if (b === ok) { conn = a; break; }
+        }
+        if (conn) {
+          const [cx2, cy2] = pk(conn);
+          const [dx, dy] = CARDINAL[Math.floor(Math.random() * 4)];
+          const newKey = nk(cx2 + dx, cy2 + dy);
+          if (!nodes.has(newKey)) {
+            nodes.delete(ok);
+            nodes.add(newKey);
+            for (const e of [...edges]) {
+              const [a, b] = e.split("|");
+              if (a === ok || b === ok) edges.delete(e);
+            }
+            edges.add(ek(conn, newKey));
+          }
+        }
+      }
+    }
+  }
+
+  if (nodes.size < 2 || edges.size < 1) return mutateCreature(parent);
+
+  const ce = new Set();
+  for (const e of edges) {
+    const [a, b] = e.split("|");
+    if (!nodes.has(a) || !nodes.has(b)) continue;
+    const [ax, ay] = pk(a); const [bx, by] = pk(b);
+    const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
+    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) ce.add(e);
+  }
+
+  const connected = new Set();
+  for (const e of ce) { const [a, b] = e.split("|"); connected.add(a); connected.add(b); }
+  const fn = new Set();
+  for (const n of nodes) { if (connected.has(n)) fn.add(n); }
+
+  if (fn.size < 2 || ce.size < 1) return mutateCreature(parent);
+
+  return {
+    id: Math.random().toString(36).slice(2, 9),
+    nodes: fn, edges: ce,
+    energy: 60, age: 0,
+    hue: (parent.hue + Math.floor(Math.random() * 30) - 15 + 360) % 360,
+    generation: parent.generation + 1,
+  };
+}
+
+function initWorld() {
+  const creatures = [];
+  for (let i = 0; i < INITIAL_CREATURES; i++) {
+    creatures.push(createCreature(
+      5 + Math.floor(Math.random() * (GRID_SIZE - 10)),
+      5 + Math.floor(Math.random() * (GRID_SIZE - 10))
+    ));
+  }
+  const food = new Set();
+  for (let i = 0; i < INITIAL_FOOD; i++) {
+    food.add(nk(Math.floor(Math.random() * GRID_SIZE), Math.floor(Math.random() * GRID_SIZE)));
+  }
+  return { creatures, food, tick: 0, births: 0, deaths: 0 };
+}
+
+function stepWorld(world) {
+  let { creatures, food, tick, births, deaths } = world;
+  food = new Set(food);
+  tick++;
+
+  if (food.size < MAX_FOOD) {
+    for (let i = 0; i < FOOD_SPAWN_RATE; i++) {
+      food.add(nk(Math.floor(Math.random() * GRID_SIZE), Math.floor(Math.random() * GRID_SIZE)));
+    }
+  }
+
+  let next = [];
+
+  for (let creature of creatures) {
+    let [dx, dy] = computeMovement(creature);
+    if (dx === 0 && dy === 0) {
+      if (Math.random() < 0.5) {
+        const d = CARDINAL[Math.floor(Math.random() * 4)];
+        dx = d[0]; dy = d[1];
+      }
+    } else if (Math.random() < 0.12) {
+      const d = CARDINAL[Math.floor(Math.random() * 4)];
+      dx += d[0]; dy += d[1];
+    }
+
+    creature = translateCreature(creature, dx, dy);
+    creature = wrapCreature(creature);
+
+    const mouths = findMouths(creature);
+    for (const mouth of mouths) {
+      for (const [fx, fy] of [[mouth.sx, mouth.sy],[mouth.sx+1, mouth.sy],[mouth.sx+1, mouth.sy+1],[mouth.sx, mouth.sy+1]]) {
+        const fk = nk(wc(fx), wc(fy));
+        if (food.has(fk)) {
+          food.delete(fk);
+          creature = { ...creature, energy: Math.min(creature.energy + ENERGY_PER_FOOD, MAX_ENERGY) };
+        }
+      }
+    }
+
+    if (mouths.length === 0) {
+      for (const n of creature.nodes) {
+        const [nx2, ny2] = pk(n);
+        const fk = nk(wc(nx2), wc(ny2));
+        if (food.has(fk) && Math.random() < 0.08) {
+          food.delete(fk);
+          creature = { ...creature, energy: Math.min(creature.energy + ENERGY_PER_FOOD * 0.2, MAX_ENERGY) };
+        }
+      }
+    }
+
+    const cost = ENERGY_PER_TICK + creature.nodes.size * 0.04 + findLegs(creature).length * 0.06;
+    creature = { ...creature, energy: creature.energy - cost, age: creature.age + 1 };
+
+    if (creature.energy <= 0) { deaths++; continue; }
+
+    if (creature.energy >= REPRODUCE_THRESHOLD && creatures.length + next.length < MAX_CREATURES) {
+      const child = mutateCreature(creature);
+      const ct = translateCreature(child, Math.floor(Math.random() * 5) - 2, Math.floor(Math.random() * 5) - 2);
+      next.push(wrapCreature(ct));
+      creature = { ...creature, energy: creature.energy * 0.5 };
+      births++;
+    }
+
+    next.push(creature);
+  }
+
+  return { creatures: next, food, tick, births, deaths };
+}
+
+// ===== RENDERING =====
+
+function drawWorld(ctx, world, selectedId, showLabels) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+
+  ctx.fillStyle = "#08080e";
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = "rgba(255,255,255,0.025)";
+  for (let gx = 0; gx < GRID_SIZE; gx += 4) {
+    for (let gy = 0; gy < GRID_SIZE; gy += 4) {
+      ctx.fillRect(gx * CELL_PX + CELL_PX / 2 - 0.3, gy * CELL_PX + CELL_PX / 2 - 0.3, 0.6, 0.6);
+    }
+  }
+
+  ctx.shadowColor = "#22dd22";
+  ctx.shadowBlur = 3;
+  for (const fk of world.food) {
+    const [fx, fy] = pk(fk);
+    ctx.fillStyle = "#22dd22";
+    ctx.beginPath();
+    ctx.arc(fx * CELL_PX + CELL_PX / 2, fy * CELL_PX + CELL_PX / 2, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  for (const creature of world.creatures) {
+    const sel = creature.id === selectedId;
+    const alpha = Math.min(1, 0.3 + creature.energy / 100);
+    const hue = creature.hue;
+
+    const mouths = findMouths(creature);
+    const legs = findLegs(creature);
+
+    const mouthEdgeSet = new Set();
+    for (const m of mouths) for (const e of m.edges) mouthEdgeSet.add(e);
+    const legEdgeSet = new Set();
+    for (const l of legs) legEdgeSet.add(l.edge);
+
+    for (const mouth of mouths) {
+      ctx.fillStyle = `hsla(${(hue + 50) % 360}, 80%, 55%, ${0.1 * alpha})`;
+      ctx.fillRect(
+        mouth.sx * CELL_PX + CELL_PX / 2,
+        mouth.sy * CELL_PX + CELL_PX / 2,
+        CELL_PX, CELL_PX
+      );
+    }
+
+    for (const e of creature.edges) {
+      const [a, b] = e.split("|");
+      const [ax, ay] = pk(a); const [bx, by] = pk(b);
+
+      const isMouth = mouthEdgeSet.has(e);
+      const isLeg = legEdgeSet.has(e);
+      const isBoth = isMouth && isLeg;
+
+      if (isBoth) {
+        ctx.strokeStyle = `hsla(${(hue + 30) % 360}, 90%, 70%, ${alpha})`;
+        ctx.lineWidth = sel ? 3 : 2.2;
+      } else if (isMouth) {
+        ctx.strokeStyle = `hsla(${(hue + 50) % 360}, 85%, 60%, ${alpha})`;
+        ctx.lineWidth = sel ? 2.8 : 2;
+      } else if (isLeg) {
+        ctx.strokeStyle = `hsla(${hue}, 40%, 78%, ${alpha})`;
+        ctx.lineWidth = sel ? 2 : 1.2;
+      } else {
+        ctx.strokeStyle = `hsla(${hue}, 60%, 50%, ${alpha})`;
+        ctx.lineWidth = sel ? 2.2 : 1.5;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(ax * CELL_PX + CELL_PX / 2, ay * CELL_PX + CELL_PX / 2);
+      ctx.lineTo(bx * CELL_PX + CELL_PX / 2, by * CELL_PX + CELL_PX / 2);
+      ctx.stroke();
+    }
+
+    for (const n of creature.nodes) {
+      const [nx2, ny2] = pk(n);
+      const deg = nodeDeg(n, creature.edges);
+      ctx.fillStyle = deg === 1
+        ? `hsla(${hue}, 45%, 82%, ${alpha})`
+        : `hsla(${hue}, 55%, 50%, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(nx2 * CELL_PX + CELL_PX / 2, ny2 * CELL_PX + CELL_PX / 2, deg === 1 ? 1.8 : 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const mouth of mouths) {
+      const openDir = mouth.opening;
+      let arrowX = mouth.sx + 0.5, arrowY = mouth.sy + 0.5;
+      let adx = 0, ady = 0;
+      if (openDir === "top") { arrowY = mouth.sy - 0.15; adx = 0; ady = -0.4; }
+      else if (openDir === "bottom") { arrowY = mouth.sy + 1.15; adx = 0; ady = 0.4; }
+      else if (openDir === "left") { arrowX = mouth.sx - 0.15; adx = -0.4; ady = 0; }
+      else if (openDir === "right") { arrowX = mouth.sx + 1.15; adx = 0.4; ady = 0; }
+
+      ctx.strokeStyle = `hsla(${(hue + 50) % 360}, 70%, 55%, ${0.4 * alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const px = arrowX * CELL_PX + CELL_PX / 2;
+      const py = arrowY * CELL_PX + CELL_PX / 2;
+      ctx.arc(px, py, 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (showLabels || sel) {
+      const pos = [...creature.nodes].map(pk);
+      const avgX = pos.reduce((s, p) => s + p[0], 0) / pos.length;
+      const avgY = pos.reduce((s, p) => s + p[1], 0) / pos.length;
+      ctx.fillStyle = `hsla(${hue}, 50%, 70%, 0.85)`;
+      ctx.font = "7px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`g${creature.generation}`, avgX * CELL_PX + CELL_PX / 2, avgY * CELL_PX - 5);
+    }
+  }
+}
+
+// ===== APP =====
+
+function LatticeLife() {
+  const canvasRef = useRef(null);
+  const worldRef = useRef(null);
+  const [running, setRunning] = useState(false);
+  const [speed, setSpeed] = useState(200);
+  const [stats, setStats] = useState({ creatures: 0, food: 0, tick: 0, births: 0, deaths: 0, maxGen: 0 });
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedInfo, setSelectedInfo] = useState(null);
+  const [showLabels, setShowLabels] = useState(false);
+  const runRef = useRef(false);
+  const speedRef = useRef(200);
+  const selRef = useRef(null);
+  const labRef = useRef(false);
+
+  useEffect(() => { speedRef.current = speed; }, [speed]);
+  useEffect(() => { selRef.current = selectedId; }, [selectedId]);
+  useEffect(() => { labRef.current = showLabels; }, [showLabels]);
+
+  const redraw = useCallback(() => {
+    const cv = canvasRef.current;
+    if (!cv || !worldRef.current) return;
+    drawWorld(cv.getContext("2d"), worldRef.current, selRef.current, labRef.current);
+  }, []);
+
+  const updateStats = useCallback(() => {
+    const w = worldRef.current;
+    if (!w) return;
+    setStats({
+      creatures: w.creatures.length,
+      food: w.food.size,
+      tick: w.tick,
+      births: w.births,
+      deaths: w.deaths,
+      maxGen: w.creatures.reduce((m, c) => Math.max(m, c.generation), 0),
+    });
+  }, []);
+
+  const updateSel = useCallback(() => {
+    const sid = selRef.current;
+    if (!sid || !worldRef.current) { setSelectedInfo(null); return; }
+    const c = worldRef.current.creatures.find(cr => cr.id === sid);
+    if (!c) { setSelectedId(null); setSelectedInfo(null); return; }
+    const mouths = findMouths(c);
+    const legs = findLegs(c);
+    const [dx, dy] = computeMovement(c);
+    const mEdges = new Set(); for (const m of mouths) for (const e of m.edges) mEdges.add(e);
+    const lEdges = new Set(); for (const l of legs) lEdges.add(l.edge);
+    let dual = 0; for (const e of mEdges) if (lEdges.has(e)) dual++;
+    setSelectedInfo({
+      nodes: c.nodes.size, edges: c.edges.size,
+      mouths: mouths.length, legs: legs.length, dual,
+      energy: Math.round(c.energy), age: c.age,
+      generation: c.generation,
+      move: `(${dx},${dy})`,
+    });
+  }, []);
+
+  const initSim = useCallback(() => {
+    worldRef.current = initWorld();
+    setSelectedId(null); setSelectedInfo(null);
+    redraw(); updateStats();
+  }, [redraw, updateStats]);
+
+  useEffect(() => { initSim(); }, [initSim]);
+
+  const step = useCallback(() => {
+    if (!worldRef.current) return;
+    worldRef.current = stepWorld(worldRef.current);
+    redraw(); updateStats(); updateSel();
+  }, [redraw, updateStats, updateSel]);
+
+  useEffect(() => {
+    if (!running) return;
+    runRef.current = true;
+    let t;
+    const loop = () => { if (!runRef.current) return; step(); t = setTimeout(loop, speedRef.current); };
+    loop();
+    return () => { runRef.current = false; clearTimeout(t); };
+  }, [running, step]);
+
+  useEffect(() => { redraw(); }, [selectedId, showLabels, redraw]);
+
+  const handleClick = (e) => {
+    const cv = canvasRef.current;
+    if (!cv || !worldRef.current) return;
+    const rect = cv.getBoundingClientRect();
+    const sx = cv.width / rect.width, sy = cv.height / rect.height;
+    const gx = Math.floor((e.clientX - rect.left) * sx / CELL_PX);
+    const gy = Math.floor((e.clientY - rect.top) * sy / CELL_PX);
+
+    let closest = null, bestD = Infinity;
+    for (const c of worldRef.current.creatures) {
+      for (const n of c.nodes) {
+        const [nx2, ny2] = pk(n);
+        const d = Math.abs(nx2 - gx) + Math.abs(ny2 - gy);
+        if (d < bestD) { bestD = d; closest = c; }
+      }
+    }
+    if (closest && bestD < 5) { setSelectedId(closest.id); updateSel(); }
+    else setSelectedId(null);
+  };
+
+  const btn = {
+    background: "#12122a", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 4, color: "#c0c0cc", padding: "5px 12px", fontSize: 11,
+    fontFamily: "'IBM Plex Mono', monospace", cursor: "pointer",
+  };
+  const panel = {
+    background: "rgba(10,10,20,0.9)", border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 5, padding: "6px 10px", color: "#b0b0bb",
+    fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#050510", color: "#c0c0cc",
+      fontFamily: "'IBM Plex Mono', monospace",
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "10px 6px", boxSizing: "border-box",
+    }}>
+      <h1 style={{
+        fontSize: 17, fontWeight: 700, color: "#dde", margin: "0 0 2px 0",
+        letterSpacing: 3, textTransform: "uppercase",
+      }}>Lattice Life</h1>
+      <p style={{ fontSize: 9, color: "#555", margin: "0 0 8px", textAlign: "center" }}>
+        Cardinal edges on the integer lattice &middot; 3-sided squares = mouths &middot; Pendant edges = legs &middot; Diagonal movement from combined leg vectors
+      </p>
+
+      <div style={{ display: "flex", gap: 5, marginBottom: 6, flexWrap: "wrap", justifyContent: "center" }}>
+        <button onClick={() => setRunning(r => !r)} style={btn}>{running ? "Pause" : "Run"}</button>
+        <button onClick={step} disabled={running} style={btn}>Step</button>
+        <button onClick={initSim} style={btn}>Reset</button>
+        <button onClick={() => setShowLabels(l => !l)} style={{...btn, opacity: showLabels ? 1 : 0.45}}>Labels</button>
+        <select value={speed} onChange={e => setSpeed(Number(e.target.value))} style={{...btn, background:"#12122a", width:76}}>
+          <option value={500}>Slow</option>
+          <option value={200}>Normal</option>
+          <option value={80}>Fast</option>
+          <option value={30}>Turbo</option>
+        </select>
+      </div>
+
+      <div style={{ ...panel, marginBottom: 6, textAlign: "center" }}>
+        <span style={{color:"#666"}}>tick</span> {stats.tick}
+        &ensp;<span style={{color:"#2d2"}}>food</span> {stats.food}
+        &ensp;<span style={{color:"#da2"}}>pop</span> {stats.creatures}
+        &ensp;<span style={{color:"#58c"}}>born</span> {stats.births}
+        &ensp;<span style={{color:"#c55"}}>died</span> {stats.deaths}
+        &ensp;<span style={{color:"#a8e"}}>gen</span> {stats.maxGen}
+      </div>
+
+      <canvas ref={canvasRef} width={CANVAS_PX} height={CANVAS_PX} onClick={handleClick}
+        style={{
+          width: Math.min(CANVAS_PX, 640), height: Math.min(CANVAS_PX, 640),
+          border: "1px solid rgba(255,255,255,0.06)", borderRadius: 3,
+          cursor: "crosshair", imageRendering: "pixelated",
+        }}
+      />
+
+      {selectedInfo && (
+        <div style={{ ...panel, marginTop: 6, maxWidth: 520, textAlign: "center" }}>
+          <span style={{ color: "#dde", fontWeight: 600 }}>Selected</span>
+          &ensp;n:{selectedInfo.nodes} e:{selectedInfo.edges}
+          &ensp;<span style={{color:"#da2"}}>mouths:{selectedInfo.mouths}</span>
+          &ensp;<span style={{color:"#8ac"}}>legs:{selectedInfo.legs}</span>
+          {selectedInfo.dual > 0 && <span style={{color:"#ea4"}}> dual:{selectedInfo.dual}</span>}
+          &ensp;energy:{selectedInfo.energy} age:{selectedInfo.age}
+          &ensp;gen:{selectedInfo.generation} move:{selectedInfo.move}
+        </div>
+      )}
+
+      <div style={{ marginTop: 8, maxWidth: 480, textAlign: "center" }}>
+        <p style={{ fontSize: 9, color: "#3a3a44", lineHeight: 1.5 }}>
+          Edges are horizontal/vertical only. A <span style={{color:"#b85"}}>mouth</span> is 3 edges
+          forming 3 sides of a unit square — food enters through the open side.
+          A <span style={{color:"#8ac"}}>leg</span> is an edge with a degree-1 tip.
+          Legs pointing in both axes produce <span style={{color:"#cc8"}}>diagonal movement</span>.
+          An edge can be both mouth and leg simultaneously.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<LatticeLife />);
+  </script>
+</body>
+</html>
