@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extinction Clock</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    >
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #0a0a0a;
+        --surface: #111111;
+        --surface-2: #1a1a1a;
+        --border: #222222;
+        --text: #e0e0e0;
+        --text-dim: #666666;
+        --text-muted: #444444;
+        --red: #ff2a2a;
+        --red-dim: #661111;
+        --orange: #ff6a00;
+        --orange-dim: #662a00;
+        --yellow: #ffaa00;
+        --yellow-dim: #664400;
+        --green: #22cc44;
+        --green-dim: #0a4418;
+        --mono: 'JetBrains Mono', monospace;
+        --serif: 'Instrument Serif', Georgia, serif;
+      }
+
+      html {
+        font-size: 16px;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        font-weight: 300;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+
+      /* Grain overlay */
+      body::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 9999;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      /* ── HEADER ── */
+      header {
+        text-align: center;
+        padding: 3rem 0 2rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2rem;
+      }
+
+      header h1 {
+        font-family: var(--serif);
+        font-size: 3.5rem;
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        margin-bottom: 0.25rem;
+      }
+
+      header .subtitle {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        color: var(--text-dim);
+        margin-bottom: 2.5rem;
+      }
+
+      /* ── SUMMARY PANEL ── */
+      .summary-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1px;
+        background: var(--border);
+        border: 1px solid var(--border);
+        margin-bottom: 3rem;
+      }
+
+      .summary-card {
+        background: var(--surface);
+        padding: 1.5rem 1rem;
+        text-align: center;
+      }
+
+      .summary-card .label {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--text-dim);
+        margin-bottom: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .summary-card .value {
+        font-family: var(--serif);
+        font-size: 2.8rem;
+        font-weight: 400;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+      }
+
+      .summary-card .unit {
+        font-size: 0.65rem;
+        color: var(--text-dim);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      .summary-card.decimation .value {
+        color: var(--orange);
+      }
+      .summary-card.extinction .value {
+        color: var(--red);
+      }
+      .summary-card.clock .value {
+        color: var(--yellow);
+      }
+
+      /* ── METHODOLOGY NOTE ── */
+      .methodology {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-align: center;
+        margin-bottom: 3rem;
+        padding: 0 2rem;
+        line-height: 1.8;
+      }
+
+      /* ── RISK CARDS ── */
+      .risks-header {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        color: var(--text-dim);
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .risk-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        margin-bottom: 1rem;
+        transition: border-color 0.3s;
+      }
+
+      .risk-card:hover {
+        border-color: #333;
+      }
+
+      .risk-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 1.5rem;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .risk-header:hover {
+        background: var(--surface-2);
+      }
+
+      .risk-name {
+        font-family: var(--serif);
+        font-size: 1.3rem;
+        font-weight: 400;
+        flex: 1;
+      }
+
+      .risk-badge {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.6rem;
+        border: 1px solid;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-left: 1rem;
+        white-space: nowrap;
+      }
+
+      .risk-badge.catastrophic {
+        color: var(--red);
+        border-color: var(--red-dim);
+      }
+      .risk-badge.severe {
+        color: var(--orange);
+        border-color: var(--orange-dim);
+      }
+      .risk-badge.major {
+        color: var(--yellow);
+        border-color: var(--yellow-dim);
+      }
+      .risk-badge.moderate {
+        color: var(--green);
+        border-color: var(--green-dim);
+      }
+
+      .risk-annual {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        margin-left: 1rem;
+        min-width: 80px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .risk-expand {
+        margin-left: 1rem;
+        color: var(--text-muted);
+        transition: transform 0.3s;
+        font-size: 0.8rem;
+      }
+
+      .risk-card.open .risk-expand {
+        transform: rotate(180deg);
+      }
+
+      .risk-body {
+        display: none;
+        padding: 0 1.5rem 1.5rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .risk-card.open .risk-body {
+        display: block;
+      }
+
+      .risk-description {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        line-height: 1.7;
+        margin: 1.25rem 0;
+      }
+
+      .slider-group {
+        margin-bottom: 1.25rem;
+      }
+
+      .slider-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.5rem;
+      }
+
+      .slider-label span:first-child {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--text-dim);
+      }
+
+      .slider-label .slider-value {
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+      }
+
+      .slider-range {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.6rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+      }
+
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 2px;
+        background: var(--border);
+        outline: none;
+        cursor: pointer;
+      }
+
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--text);
+        border: 2px solid var(--bg);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      input[type='range']::-webkit-slider-thumb:hover {
+        background: #fff;
+      }
+
+      input[type='range']::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--text);
+        border: 2px solid var(--bg);
+        cursor: pointer;
+      }
+
+      .risk-factors {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .risk-factors-title {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--text-muted);
+        margin-bottom: 0.75rem;
+      }
+
+      .factor {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        padding: 0.3rem 0;
+        padding-left: 1rem;
+        position: relative;
+        line-height: 1.5;
+      }
+
+      .factor::before {
+        content: '›';
+        position: absolute;
+        left: 0;
+        color: var(--text-muted);
+      }
+
+      .factor .up {
+        color: var(--red);
+      }
+      .factor .down {
+        color: var(--green);
+      }
+
+      /* ── FOOTER ── */
+      footer {
+        margin-top: 3rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+
+      footer p {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        line-height: 1.8;
+      }
+
+      footer a {
+        color: var(--text-dim);
+        text-decoration: none;
+        border-bottom: 1px solid var(--text-muted);
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 640px) {
+        header h1 {
+          font-size: 2.2rem;
+        }
+        .summary-panel {
+          grid-template-columns: 1fr;
+        }
+        .summary-card .value {
+          font-size: 2.2rem;
+        }
+        .risk-header {
+          padding: 1rem;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .risk-name {
+          font-size: 1.1rem;
+          min-width: 100%;
+        }
+        .risk-annual {
+          margin-left: 0;
+          text-align: left;
+        }
+        .risk-body {
+          padding: 0 1rem 1rem;
+        }
+      }
+
+      /* ── ANIMATIONS ── */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .risk-card {
+        animation: fadeIn 0.4s ease both;
+      }
+
+      .risk-card:nth-child(1) {
+        animation-delay: 0.05s;
+      }
+      .risk-card:nth-child(2) {
+        animation-delay: 0.1s;
+      }
+      .risk-card:nth-child(3) {
+        animation-delay: 0.15s;
+      }
+      .risk-card:nth-child(4) {
+        animation-delay: 0.2s;
+      }
+      .risk-card:nth-child(5) {
+        animation-delay: 0.25s;
+      }
+      .risk-card:nth-child(6) {
+        animation-delay: 0.3s;
+      }
+      .risk-card:nth-child(7) {
+        animation-delay: 0.35s;
+      }
+      .risk-card:nth-child(8) {
+        animation-delay: 0.4s;
+      }
+      .risk-card:nth-child(9) {
+        animation-delay: 0.45s;
+      }
+      .risk-card:nth-child(10) {
+        animation-delay: 0.5s;
+      }
+      .risk-card:nth-child(11) {
+        animation-delay: 0.55s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Extinction Clock</h1>
+        <div class="subtitle">Actuarial Risk Model for Human Civilization</div>
+
+        <div class="summary-panel">
+          <div class="summary-card decimation">
+            <div class="label">
+              P(>10% mortality)<br>
+              next 20 years
+            </div>
+            <div class="value" id="decimation-value">—</div>
+            <div class="unit">percent</div>
+          </div>
+          <div class="summary-card extinction">
+            <div class="label">
+              P(extinction)<br>
+              next 20 years
+            </div>
+            <div class="value" id="extinction-value">—</div>
+            <div class="unit">percent</div>
+          </div>
+          <div class="summary-card clock">
+            <div class="label">
+              Year extinction<br>
+              reaches 90%
+            </div>
+            <div class="value" id="clock-value">—</div>
+            <div class="unit">CE</div>
+          </div>
+        </div>
+
+        <div class="methodology">
+          Aggregate annual hazard rate compounded over time. Each risk has independent probability and severity sliders
+          with bounded ranges reflecting current research consensus. Adjust sliders to explore scenarios. P(survival) =
+          Π(1 - hᵢ)^n across all risk channels. Decimation uses severity-weighted rates.
+        </div>
+      </header>
+
+      <div class="risks-header">Existential Risk Channels — adjust probability & severity</div>
+
+      <div id="risks-container"></div>
+
+      <footer>
+        <p>
+          Based on frameworks from Toby Ord's <em>The Precipice</em>, FHI, and the Existential Risk Persuasion
+          Tournament.<br>
+          Default values represent mid-range research consensus circa 2026. This is a model, not a prophecy.<br>
+          The universe is indifferent. The smoke detectors are optional.
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      const RISKS = [
+        {
+          id: 'ai_misalignment',
+          name: 'AI Misalignment',
+          badge: 'catastrophic',
+          description:
+            'Loss of human control over advanced AI systems pursuing misaligned objectives. Includes both sudden takeoff scenarios and gradual value drift in systems managing critical infrastructure. The risk scales with capability — current systems are controllable, but the gap between capability and alignment research is widening.',
+          probMin: 0.05,
+          probMax: 1.0,
+          probDefault: 0.25,
+          sevMin: 0.3,
+          sevMax: 1.0,
+          sevDefault: 0.8,
+          factors: [
+            '<span class="up">↑</span> Capability advancing faster than alignment research',
+            '<span class="up">↑</span> Autonomous AI agents deployed in critical systems',
+            '<span class="up">↑</span> Racing dynamics between labs and nation-states',
+            '<span class="down">↓</span> Interpretability breakthroughs',
+            '<span class="down">↓</span> International governance frameworks',
+          ],
+        },
+        {
+          id: 'engineered_pandemic_state',
+          name: 'Engineered Pandemic — State Actor',
+          badge: 'catastrophic',
+          description:
+            'Deliberate or accidental release of enhanced pathogens from state-level bioweapons programs. Gain-of-function research continues in multiple countries with varying safety standards. Unlike natural pandemics, engineered pathogens can be optimized for transmissibility, lethality, and immune evasion simultaneously.',
+          probMin: 0.02,
+          probMax: 0.5,
+          probDefault: 0.1,
+          sevMin: 0.3,
+          sevMax: 0.9,
+          sevDefault: 0.6,
+          factors: [
+            '<span class="up">↑</span> Proliferation of BSL-4 labs globally',
+            '<span class="up">↑</span> AI-assisted pathogen design tools',
+            '<span class="up">↑</span> Geopolitical instability increasing state program incentives',
+            '<span class="down">↓</span> mRNA rapid vaccine platforms',
+            '<span class="down">↓</span> Genomic surveillance networks',
+          ],
+        },
+        {
+          id: 'engineered_pandemic_lone',
+          name: 'Engineered Pandemic — Lone Actor',
+          badge: 'severe',
+          description:
+            'An individual or small group uses increasingly accessible synthetic biology tools — benchtop DNA synthesizers, AI-guided protocols, commodity lab equipment — to create and release an enhanced pathogen. The cost floor is collapsing. The skill floor is following. Current guardrails (synthesis screening, lab security) are voluntary and porous.',
+          probMin: 0.01,
+          probMax: 0.8,
+          probDefault: 0.15,
+          sevMin: 0.1,
+          sevMax: 0.8,
+          sevDefault: 0.5,
+          factors: [
+            '<span class="up">↑</span> DNA synthesizer costs dropping below $5k',
+            '<span class="up">↑</span> AI models providing step-by-step wet lab guidance',
+            '<span class="up">↑</span> No mandatory synthesis screening in most countries',
+            '<span class="up">↑</span> Community college and makerspace lab access',
+            '<span class="down">↓</span> Wastewater genomic surveillance',
+            '<span class="down">↓</span> Rapid-response vaccine platforms',
+          ],
+        },
+        {
+          id: 'nuclear',
+          name: 'Nuclear War',
+          badge: 'severe',
+          description:
+            'Full-scale nuclear exchange between major powers triggering nuclear winter. Current arsenals (~12,000 warheads) are sufficient for civilizational collapse via climate disruption, agricultural failure, and infrastructure destruction. Risk is driven by escalation dynamics, miscalculation, and eroding arms control frameworks.',
+          probMin: 0.02,
+          probMax: 0.5,
+          probDefault: 0.08,
+          sevMin: 0.5,
+          sevMax: 1.0,
+          sevDefault: 0.7,
+          factors: [
+            '<span class="up">↑</span> Collapse of INF and Open Skies treaties',
+            '<span class="up">↑</span> Hypersonic delivery systems shortening decision windows',
+            '<span class="up">↑</span> Multi-polar nuclear landscape (9 states)',
+            '<span class="up">↑</span> AI in nuclear command and control',
+            '<span class="down">↓</span> Mutual assured destruction still operative',
+            '<span class="down">↓</span> No first-use pledges from some states',
+          ],
+        },
+        {
+          id: 'climate',
+          name: 'Climate Cascade',
+          badge: 'major',
+          description:
+            'Cascading tipping points — ice sheet collapse, permafrost methane release, Amazon dieback, AMOC shutdown — triggering runaway warming beyond human adaptation capacity. Not direct extinction but civilizational collapse via agricultural failure, mass displacement, resource wars, and institutional breakdown at scale.',
+          probMin: 0.01,
+          probMax: 0.3,
+          probDefault: 0.05,
+          sevMin: 0.2,
+          sevMax: 0.7,
+          sevDefault: 0.4,
+          factors: [
+            '<span class="up">↑</span> Emissions trajectory exceeding worst-case models',
+            '<span class="up">↑</span> Tipping point interactions poorly understood',
+            '<span class="up">↑</span> Political will insufficient for required action',
+            '<span class="down">↓</span> Solar and battery cost curves',
+            '<span class="down">↓</span> Carbon capture R&D acceleration',
+          ],
+        },
+        {
+          id: 'cognitive_enhancement',
+          name: 'Cognitive Enhancement Asymmetry',
+          badge: 'major',
+          description:
+            'Germline genetic engineering produces cognitively enhanced populations with decisive strategic advantages over baseline humans. The risk is not enhancement itself but asymmetric access — a small enhanced group achieving economic and institutional dominance that renders unenhanced humanity functionally obsolete. Displacement without violence.',
+          probMin: 0.005,
+          probMax: 0.2,
+          probDefault: 0.03,
+          sevMin: 0.2,
+          sevMax: 0.8,
+          sevDefault: 0.5,
+          factors: [
+            '<span class="up">↑</span> Polygenic score accuracy improving rapidly',
+            '<span class="up">↑</span> Nations without bioethics constraints pursuing programs',
+            '<span class="up">↑</span> AI-assisted genomic design tools',
+            '<span class="down">↓</span> International bioethics governance',
+            '<span class="down">↓</span> Technical barriers to multi-gene editing remain high',
+          ],
+        },
+        {
+          id: 'bio_machine',
+          name: 'Bio-Machine Convergence',
+          badge: 'major',
+          description:
+            'Brain-computer interfaces progress from therapeutic to augmentative to transformative, producing functional speciation between merged and unmerged humans. At sufficient integration depth, the merged entity is no longer human in any meaningful sense. Risk parallels cognitive enhancement but on a faster timeline with more radical divergence.',
+          probMin: 0.005,
+          probMax: 0.15,
+          probDefault: 0.02,
+          sevMin: 0.2,
+          sevMax: 0.7,
+          sevDefault: 0.4,
+          factors: [
+            '<span class="up">↑</span> Neuralink and competitors advancing rapidly',
+            '<span class="up">↑</span> Military interest in cognitive augmentation',
+            '<span class="up">↑</span> Competitive pressure to adopt once available',
+            '<span class="down">↓</span> Bandwidth limitations of current BCIs',
+            '<span class="down">↓</span> Infection and rejection risks still severe',
+          ],
+        },
+        {
+          id: 'ecosystem',
+          name: 'Engineered Ecosystem Collapse',
+          badge: 'severe',
+          description:
+            'Synthetic organisms — released deliberately or accidentally — that outcompete or disrupt keystone natural systems. Engineered soil microbes that displace nitrogen fixers, modified algae that disrupt ocean oxygen production, or organisms that break pollination chains. Slower than a pandemic but potentially more total and less reversible.',
+          probMin: 0.005,
+          probMax: 0.3,
+          probDefault: 0.05,
+          sevMin: 0.3,
+          sevMax: 0.9,
+          sevDefault: 0.6,
+          factors: [
+            '<span class="up">↑</span> Gene drives in field testing',
+            '<span class="up">↑</span> Synthetic biology democratization',
+            '<span class="up">↑</span> Ecosystem interactions poorly modeled',
+            '<span class="down">↓</span> Biocontainment research advancing',
+            '<span class="down">↓</span> Ecological monitoring improving',
+          ],
+        },
+        {
+          id: 'nanotech',
+          name: 'Self-Replicating Nanotechnology',
+          badge: 'moderate',
+          description:
+            'Convergence of synthetic biology and nanotechnology producing self-replicating molecular machines. The line between engineered organism and nanomachine is blurring. Currently theoretical for true molecular nanotechnology, but bio-nano hybrids are advancing. Grey goo remains speculative but the design space is opening.',
+          probMin: 0.001,
+          probMax: 0.1,
+          probDefault: 0.01,
+          sevMin: 0.5,
+          sevMax: 1.0,
+          sevDefault: 0.8,
+          factors: [
+            '<span class="up">↑</span> Protein-based molecular machines demonstrated',
+            '<span class="up">↑</span> AI accelerating molecular design',
+            '<span class="down">↓</span> True molecular assemblers still far out',
+            '<span class="down">↓</span> Energy requirements for replication constrain speed',
+          ],
+        },
+        {
+          id: 'supervolcano',
+          name: 'Supervolcanic Eruption',
+          badge: 'moderate',
+          description:
+            'VEI-8 eruption (Yellowstone, Toba, Campi Flegrei) producing volcanic winter via stratospheric aerosol injection. Historical precedent: Toba ~74,000 years ago may have reduced human population to ~10,000. Agricultural collapse lasting 5-10 years. Not extinction-level for modern civilization but severe enough to cascade.',
+          probMin: 0.001,
+          probMax: 0.02,
+          probDefault: 0.005,
+          sevMin: 0.2,
+          sevMax: 0.6,
+          sevDefault: 0.35,
+          factors: [
+            '<span class="up">↑</span> Geological inevitability — only question is when',
+            '<span class="down">↓</span> Probability per year is genuinely low (~0.01-0.1%)',
+            '<span class="down">↓</span> Monitoring systems improving',
+            '<span class="down">↓</span> Global food reserves could buffer short disruptions',
+          ],
+        },
+        {
+          id: 'asteroid',
+          name: 'Asteroid / Comet Impact',
+          badge: 'moderate',
+          description:
+            'Collision with a near-Earth object large enough to cause civilizational disruption (>1km diameter) or extinction (>10km). The best-characterized existential risk — well-understood physics, ongoing survey programs, and demonstrated deflection capability (DART mission 2022). Low probability, high consequence.',
+          probMin: 0.0001,
+          probMax: 0.01,
+          probDefault: 0.001,
+          sevMin: 0.3,
+          sevMax: 1.0,
+          sevDefault: 0.7,
+          factors: [
+            '<span class="down">↓</span> >95% of 1km+ NEOs catalogued',
+            '<span class="down">↓</span> DART demonstrated kinetic deflection',
+            '<span class="down">↓</span> Long warning times for known objects',
+            '<span class="up">↑</span> Long-period comets have short warning times',
+            '<span class="up">↑</span> Small but damaging objects still poorly tracked',
+          ],
+        },
+      ];
+
+      const container = document.getElementById('risks-container');
+
+      RISKS.forEach((risk) => {
+        const card = document.createElement('div');
+        card.className = 'risk-card';
+        card.id = `card-${risk.id}`;
+
+        card.innerHTML = `
+    <div class="risk-header" onclick="toggleCard('${risk.id}')">
+      <span class="risk-name">${risk.name}</span>
+      <span class="risk-badge ${risk.badge}">${risk.badge}</span>
+      <span class="risk-annual" id="annual-${risk.id}">—%/yr</span>
+      <span class="risk-expand">▼</span>
+    </div>
+    <div class="risk-body">
+      <div class="risk-description">${risk.description}</div>
+      
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>Annual probability (%/yr)</span>
+          <span class="slider-value" id="prob-val-${risk.id}">—</span>
+        </div>
+        <input type="range" 
+          id="prob-${risk.id}" 
+          min="${risk.probMin * 1000}" 
+          max="${risk.probMax * 1000}" 
+          value="${risk.probDefault * 1000}" 
+          step="1"
+          oninput="updateAll()">
+        <div class="slider-range">
+          <span>${risk.probMin}%</span>
+          <span>${risk.probMax}%</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label">
+          <span>Severity (fraction of humanity at risk)</span>
+          <span class="slider-value" id="sev-val-${risk.id}">—</span>
+        </div>
+        <input type="range" 
+          id="sev-${risk.id}" 
+          min="${risk.sevMin * 100}" 
+          max="${risk.sevMax * 100}" 
+          value="${risk.sevDefault * 100}" 
+          step="1"
+          oninput="updateAll()">
+        <div class="slider-range">
+          <span>${(risk.sevMin * 100).toFixed(0)}%</span>
+          <span>${(risk.sevMax * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+
+      <div class="risk-factors">
+        <div class="risk-factors-title">What moves the sliders</div>
+        ${risk.factors.map((f) => `<div class="factor">${f}</div>`).join('')}
+      </div>
+    </div>
+  `;
+
+        container.appendChild(card);
+      });
+
+      function toggleCard(id) {
+        document.getElementById(`card-${id}`).classList.toggle('open');
+      }
+
+      function updateAll() {
+        let survivalExtinction20 = 1;
+        let survivalDecimation20 = 1;
+
+        RISKS.forEach((risk) => {
+          const probSlider = document.getElementById(`prob-${risk.id}`);
+          const sevSlider = document.getElementById(`sev-${risk.id}`);
+
+          const prob = parseInt(probSlider.value) / 1000; // percentage per year
+          const sev = parseInt(sevSlider.value) / 100; // fraction
+
+          // Display values
+          document.getElementById(`prob-val-${risk.id}`).textContent = prob.toFixed(3) + '%';
+          document.getElementById(`annual-${risk.id}`).textContent = prob.toFixed(3) + '%/yr';
+          document.getElementById(`sev-val-${risk.id}`).textContent = (sev * 100).toFixed(0) + '%';
+
+          // Annual hazard rate as decimal
+          const annualRate = prob / 100;
+
+          // For extinction: probability that this risk causes extinction
+          // Scale by severity — only near-total severity counts as extinction
+          const extinctionRate = annualRate * Math.pow(sev, 3); // cubic scaling: only very high severity → extinction
+
+          // For decimation (>10% mortality): lower threshold
+          const decimationRate = annualRate * sev;
+
+          survivalExtinction20 *= Math.pow(1 - extinctionRate, 20);
+          survivalDecimation20 *= Math.pow(1 - decimationRate, 20);
+        });
+
+        const pExtinction20 = (1 - survivalExtinction20) * 100;
+        const pDecimation20 = (1 - survivalDecimation20) * 100;
+
+        // Year when cumulative extinction probability reaches 90%
+        let year90 = 2026;
+        let cumSurvival = 1;
+        const maxYear = 3000;
+
+        // Get aggregate annual extinction rate
+        let annualExtinctionRate = 0;
+        RISKS.forEach((risk) => {
+          const prob = parseInt(document.getElementById(`prob-${risk.id}`).value) / 1000 / 100;
+          const sev = parseInt(document.getElementById(`sev-${risk.id}`).value) / 100;
+          annualExtinctionRate += prob * Math.pow(sev, 3);
+        });
+
+        // Account for rate acceleration (~1% per year increase in hazard rate)
+        const accelerationRate = 0.01;
+
+        for (let y = 2026; y <= maxYear; y++) {
+          const yearRate = annualExtinctionRate * Math.pow(1 + accelerationRate, y - 2026);
+          cumSurvival *= 1 - Math.min(yearRate, 1);
+          if (1 - cumSurvival >= 0.9) {
+            year90 = y;
+            break;
+          }
+        }
+
+        // Update display
+        document.getElementById('decimation-value').textContent =
+          pDecimation20 < 1 ? pDecimation20.toFixed(1) : pDecimation20.toFixed(0);
+
+        document.getElementById('extinction-value').textContent =
+          pExtinction20 < 1 ? pExtinction20.toFixed(2) : pExtinction20.toFixed(1);
+
+        document.getElementById('clock-value').textContent = year90 >= maxYear ? '>' + maxYear : year90;
+
+        // Color the values based on severity
+        const decEl = document.getElementById('decimation-value');
+        const extEl = document.getElementById('extinction-value');
+
+        if (pDecimation20 > 30) decEl.style.color = 'var(--red)';
+        else if (pDecimation20 > 15) decEl.style.color = 'var(--orange)';
+        else decEl.style.color = 'var(--yellow)';
+
+        if (pExtinction20 > 10) extEl.style.color = 'var(--red)';
+        else if (pExtinction20 > 5) extEl.style.color = 'var(--orange)';
+        else extEl.style.color = 'var(--red)';
+      }
+
+      // Initial calculation
+      updateAll();
+    </script>
+  </body>
+</html>
